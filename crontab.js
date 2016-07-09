@@ -6,27 +6,32 @@ db.loadDatabase(function (err) {
 var exec = require('child_process').exec;
 var fs = require('fs');
 var cron_parser = require("cron-parser")
+var os = require("os")
 
-crontab = function(name, command, schedule, stopped){
+exports.log_folder = __dirname + '/crontabs/logs';
+exports.env_file = __dirname + '/crontabs/env.db';
+
+crontab = function(name, command, schedule, stopped, logging){
 	var data = {};
 	data.name = name;
 	data.command = command;
 	data.schedule = schedule;
 	if(stopped != null) {
 		data.stopped = stopped;
-	} 
+	}
 	data.timestamp = (new Date()).toString();
+	data.logging = logging;
 	return data;
 }
 
-exports.create_new = function(name, command, schedule){
-	var tab = crontab(name, command, schedule, false);
+exports.create_new = function(name, command, schedule, logging){
+	var tab = crontab(name, command, schedule, false, logging);
 	tab.created = new Date().valueOf();
 	db.insert(tab);
 }
 
 exports.update = function(data){
-	db.update({_id: data._id}, crontab(data.name, data.command, data.schedule, null));
+	db.update({_id: data._id}, crontab(data.name, data.command, data.schedule, null, data.logging));
 }
 
 exports.status = function(_id, stopped){
@@ -47,17 +52,31 @@ exports.crontabs = function(callback){
 		callback(docs);
 	});
 }
-exports.set_crontab = function(){
+exports.set_crontab = function(env_vars){
 	exports.crontabs( function(tabs){
 		var crontab_string = "";
+		if (env_vars) {
+			crontab_string = env_vars + "\n";
+		}
 		tabs.forEach(function(tab){
 			if(!tab.stopped){
-				crontab_string += tab.schedule + " " + tab.command + "\n";
+				if (tab.logging && tab.logging == "true"){
+					tmp_log = "/tmp/" + tab._id + ".log";
+					log_file = exports.log_folder + "/" + tab._id + ".log";
+					if(tab.command[tab.command.length-1] != ";") // add semicolon
+						tab.command +=";"
+					//{ command; } 2>/tmp/<id>.log|| {if test -f /tmp/<id>; then date >> <log file>; cat /tmp/<id>.log >> <log file>; rm /tmp<id>.log }
+					crontab_string += tab.schedule + " { " + tab.command + " } 2> " + tmp_log +"; if test -f " + tmp_log +"; then date >> " + log_file + "; cat " + tmp_log + " >> " + log_file + "; rm " + tmp_log + "; fi \n";
+					}
+				else
+					crontab_string += tab.schedule + " " + tab.command + "\n";
 			}
 		});
+
+		fs.writeFile(exports.env_file, env_vars);
 		fs.writeFile("/tmp/crontab", crontab_string, function(err) {
 			exec("crontab /tmp/crontab");
-		}); 
+		});
 
 	});
 }
@@ -103,6 +122,13 @@ exports.reload_db= function(){
 	db.loadDatabase();
 }
 
+exports.get_env = function(){
+	if (fs.existsSync(exports.env_file)) {
+		return fs.readFileSync(exports.env_file , 'utf8').replace("\n", "\n");
+	}
+	return ""
+}
+
 // TODO
 exports.import_crontab = function(){
 	exec("crontab -l", function(error, stdout, stderr){
@@ -117,6 +143,6 @@ exports.import_crontab = function(){
 			*/
 			//if(line.indexOf("@")
 		})
-		console.log(stdout);	
+		console.log(stdout);
 	});
 }

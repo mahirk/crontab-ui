@@ -48,6 +48,7 @@
 	<a class="btn btn-primary" onclick="schedule = '@reboot'; job_string();">Startup</a>
 	<a class="btn btn-primary" onclick="schedule = '@hourly'; job_string();">Hourly</a>
 	<a class="btn btn-primary" onclick="schedule = '@daily'; job_string();">Daily</a>
+  <a class="btn btn-primary" onclick="schedule = '@weekly'; job_string();">Weekly</a>
 	<a class="btn btn-primary" onclick="schedule = '@monthly'; job_string();">Monthly</a>
 	<a class="btn btn-primary" onclick="schedule = '@yearly'; job_string();">Yearly</a><br /><br />
 
@@ -71,6 +72,7 @@
 	<br />
 	<label>Job</label>
 	<input type='text' class='form-control' id='job-string' disabled='disabled'/><br />
+	<label><input type="checkbox" id="job-logging" style="position:relative;top:2px"/> Enable error logging.</label>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
